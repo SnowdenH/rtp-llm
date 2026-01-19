@@ -129,6 +129,13 @@ public:
     TreeDFA(TreeDFA&)  = default;
     TreeDFA(TreeDFA&&) = default;
 
+    // 新增，提前判断是否终止
+    bool isAboutToFinish() {
+        auto candidate_tokens = getCandidateTokenIds();
+        return candidate_tokens.size() == 1 && 
+            candidate_tokens[0] == prefixToCandidateTokensPtr_->endTokenId();
+    }
+
     bool isFinished() override {
         if (input_list_.empty()) {
             return false;
