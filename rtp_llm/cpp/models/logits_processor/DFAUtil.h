@@ -15,7 +15,7 @@ class BaseDFA {
 public:
     BaseDFA()                                = default;
     virtual ~BaseDFA()                       = default;
-    virtual bool       isFinished()          = 0;
+    virtual bool       isFinished() const    = 0;
     virtual StatusType next(InputType input) = 0;
 };
 
@@ -53,11 +53,11 @@ public:
         computeNextArray(input_list);
     }
 
-    bool isFinished() override {
+    bool isFinished() const override {
         return status_ == contain_string_.size();
     }
 
-    size_t status() {
+    size_t status() const {
         return status_;
     }
 
@@ -136,14 +136,14 @@ public:
             candidate_tokens[0] == prefixToCandidateTokensPtr_->endTokenId();
     }
 
-    bool isFinished() override {
+    bool isFinished() const override {
         if (input_list_.empty()) {
             return false;
         }
         return input_list_[input_list_.size() - 1] == prefixToCandidateTokensPtr_->endTokenId();
     }
 
-    std::string status() {
+    std::string status() const {
         return status_;
     }
 
@@ -166,6 +166,16 @@ public:
             throw std::runtime_error(ss.str());
         }
         return status_;
+    }
+
+    // 在不实际修改状态的情况下检查下一个token是否符合树结构
+    bool isValidNext(InputType input) const {
+        if (isFinished()) {
+            return true;
+        }
+        std::string new_status = prefixToCandidateTokensPtr_->generateNextKey(status_, input);
+        return prefixToCandidateTokensPtr_->isValidStatus(new_status)
+            || std::to_string(input) == std::to_string(prefixToCandidateTokensPtr_->endTokenId());
     }
 
     std::vector<size_t> getCandidateTokenIds() {
