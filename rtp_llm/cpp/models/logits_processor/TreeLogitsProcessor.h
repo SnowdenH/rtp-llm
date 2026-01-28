@@ -11,23 +11,27 @@ struct StreamTreeInfo {
     int32_t                                    current_output_length;
     bool                                       is_beam_search;
     std::shared_ptr<TreeDFA<std::string, int>> dfa_ptr;
+    bool                                       soft_constraint_mode;
     StreamTreeInfo() = default;
     StreamTreeInfo(bool                                       in_tree_mode,
                    int32_t                                    input_length,
                    int32_t                                    output_length,
                    bool                                       is_beam_search,
-                   std::shared_ptr<TreeDFA<std::string, int>> dfa_ptr):
+                   std::shared_ptr<TreeDFA<std::string, int>> dfa_ptr,
+                   bool                                       soft_constraint_mode = true):
         in_tree_mode(in_tree_mode),
         input_length(input_length),
         current_output_length(output_length),
         is_beam_search(is_beam_search),
-        dfa_ptr(dfa_ptr) {}
+        dfa_ptr(dfa_ptr),
+        soft_constraint_mode(soft_constraint_mode) {}
     StreamTreeInfo copy() {
         StreamTreeInfo tree_info;
         tree_info.in_tree_mode          = in_tree_mode;
         tree_info.input_length          = input_length;
         tree_info.current_output_length = current_output_length;
         tree_info.is_beam_search        = is_beam_search;
+        tree_info.soft_constraint_mode  = soft_constraint_mode;
         if (dfa_ptr) {
             tree_info.dfa_ptr = std::make_shared<TreeDFA<std::string, int>>(*dfa_ptr);
         }

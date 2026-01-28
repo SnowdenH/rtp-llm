@@ -84,6 +84,7 @@ public:
     bool             enable_3fs                = true;
     bool             enable_memory_block_cache = true;
     std::string      trace_id;
+    bool             soft_constraint_mode      = true;  // 约束解码中的新增模式，当出现不在树结构中的token时退出约束解码，而不是直接core掉
 
     bool top1() {
         return top_k == 1;

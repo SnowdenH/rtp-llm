@@ -68,7 +68,34 @@ void TreeLogitsProcessor::updateStatus(const rtp_llm::BufferPtr& new_tokens, int
 
         for (size_t j = 0; j < num_new_tokens; ++j) {
             auto current_token_id = *(*new_tokens)[i].dataWithOffset<int>(j + offset);
-            info.dfa_ptr->next(current_token_id);
+            // 开启软约束模式
+            if (info.soft_constraint_mode) {
+                // 先验证next token是否符合约束解码要求
+                if (!info.dfa_ptr->isValidNext(current_token_id)) {
+                    // 如果开启软约束模式，且next token不符合约束解码要求，则退出约束解码
+                    RTP_LLM_LOG_WARNING("Soft constraint mode: Invalid token %d detected for beam %zu, "
+                                      "exiting constraint decoding gracefully. Current status: %s",
+                                      current_token_id, i, info.dfa_ptr->status().c_str());
+                    info.in_tree_mode = false;
+                    break;
+                }
+            }
+            
+            // 处理next token
+            try {
+                info.dfa_ptr->next(current_token_id);
+            } catch (const std::runtime_error& e) {
+                if (info.soft_constraint_mode) {
+                    // 如果是软约束模式下，理论上走不到这个分支，保留用于兜底
+                    RTP_LLM_LOG_WARNING("Soft constraint mode: Unexpected error processing token %d for beam %zu: %s",
+                                      current_token_id, i, e.what());
+                    info.in_tree_mode = false;
+                    break;
+                } else {
+                    // 在严格模式下抛异常
+                    throw;
+                }
+            }
         }
 
         info.current_output_length += num_new_tokens;
@@ -88,13 +115,22 @@ TreeLogitsProcessorPtr TreeLogitsProcessor::fromGenerateInput(rtp_llm::DeviceBas
     }
 
     auto processor_ptr = std::make_shared<TreeLogitsProcessor>(rtp_llm::DeviceFactory::getDefaultDevice());
+
+    // 读取软约束模式是否开启
+    bool soft_constraint_enabled = generate_input->generate_config->soft_constraint_mode;
+    
+    if (soft_constraint_enabled) {
+        RTP_LLM_LOG_INFO("TreeLogitsProcessor: Soft constraint mode enabled for %d streams", num);
+    }
+
     for (size_t i = 0; i < num; i++) {
         StreamTreeInfo              tree_info(PrefixToCandidateTokens::instance()->initSuccess(),
                                  generate_input->inputLength(),
                                  0,
                                  generate_input->generate_config->hasNumBeams()
                                      || generate_input->generate_config->num_return_sequences > 1,
-                                 std::make_shared<TreeDFA<std::string, int>>(PrefixToCandidateTokens::instance()));
+                                 std::make_shared<TreeDFA<std::string, int>>(PrefixToCandidateTokens::instance()),
+                                 soft_constraint_enabled);
         std::vector<StreamTreeInfo> tree_infos       = {tree_info};
         auto                        single_processor = std::make_shared<TreeLogitsProcessor>(device, tree_infos);
 
