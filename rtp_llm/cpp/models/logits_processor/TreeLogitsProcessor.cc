@@ -21,6 +21,11 @@ void TreeLogitsProcessor::process(const SamplerInputs& inputs, size_t start_idx,
         if (!info.in_tree_mode) {
             continue;
         }
+        // 【新增】如果即将到达终止状态，提前退出树模式
+        if (info.dfa_ptr->isAboutToFinish()) {
+            info.in_tree_mode = false;
+            continue;
+        }
         const auto& candidate_token_ids = info.dfa_ptr->getCandidateTokenIds();
         batch_candidate_token_ids[i]    = candidate_token_ids;
         if (candidate_token_ids.size() > 0) {
@@ -67,6 +72,11 @@ void TreeLogitsProcessor::updateStatus(const rtp_llm::BufferPtr& new_tokens, int
         }
 
         info.current_output_length += num_new_tokens;
+        // 【新增】检查 DFA 是否完成，如果完成则退出树模式，
+        // 作为isAboutToFinish逻辑的兜底，确保即使isAboutToFinish()没有正确触发，DFA完成后也能退出树模式
+        if (info.dfa_ptr->isFinished()) {
+            info.in_tree_mode = false;
+        }
     }
 }
 
