@@ -877,7 +877,7 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 
     int active_blocks;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, true>, BlockSize, 0);
+        &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, false>, BlockSize, 0);
     active_blocks *= sm_cnt;
 
     IdxT best_num_blocks = 0;
@@ -1290,7 +1290,7 @@ void standalone_stable_radix_topk_(void* buf, size_t& buf_size, T const* in, Idx
 
     constexpr int num_passes = air_topk_stable::calc_num_passes<T, BitsPerPass>();
 
-    auto kernel = air_topk_stable::radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, true>;
+    auto kernel = air_topk_stable::radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, false>;
 
     for (int pass = 0; pass < num_passes; ++pass)
     {
@@ -1299,7 +1299,7 @@ void standalone_stable_radix_topk_(void* buf, size_t& buf_size, T const* in, Idx
 
         if (fused_last_filter && pass == num_passes - 1)
         {
-            kernel = air_topk_stable::radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, true>;
+            kernel = air_topk_stable::radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, false>;
         }
 
         kernel<<<blocks, BlockSize, 0, stream>>>(in, in_idx, in_buf, in_idx_buf, out_buf, out_idx_buf, topk_out,
@@ -1309,7 +1309,7 @@ void standalone_stable_radix_topk_(void* buf, size_t& buf_size, T const* in, Idx
 
     if (!fused_last_filter)
     {
-        air_topk_stable::last_filter_kernel<T, IdxT, BitsPerPass, true><<<blocks, BlockSize, 0, stream>>>(
+        air_topk_stable::last_filter_kernel<T, IdxT, BitsPerPass, false><<<blocks, BlockSize, 0, stream>>>(
             in, in_idx, out_buf, out_idx_buf, topk_out, topk_out_idx, len, k, counters, select_min);
         check_cuda_error();
     }
