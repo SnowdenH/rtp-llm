@@ -42,6 +42,14 @@ public:
     virtual MaskOutput        attentionMask(const MaskParams& params);
     virtual BufferPtr         loraLinearWithActivation(const LoraLinearWithActivationParams& params);
     virtual void              maskLogits(Buffer& logits, const Buffer& mask);
+    // CSR 约束解码 GPU kernel：直接在 logits 上按 CSR 黑名单，无需 CPU 构建 mask buffer
+    virtual void              csrMaskLogits(Buffer& logits, const Buffer& states,
+                                            const Buffer& row_ptr, const Buffer& col_idx,
+                                            int limit);
+    // CSR 状态更新 GPU kernel：根据新生成 token 推进每个 beam 的状态
+    virtual void              csrUpdateStates(Buffer& states, const Buffer& new_tokens,
+                                              const Buffer& row_ptr, const Buffer& col_idx,
+                                              const Buffer& next_state, int end_token_id);
 
     // QKV ops
     virtual BufferPtr mhaQKVGemm(const AttentionLayerParams& params);

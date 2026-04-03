@@ -208,6 +208,12 @@ public:
 
     void prepareCommBuffer(const PrepareCommBufferParams& params) override;
     void maskLogits(Buffer& logits, const Buffer& mask) override;
+    void csrMaskLogits(Buffer& logits, const Buffer& states,
+                       const Buffer& row_ptr, const Buffer& col_idx,
+                       int limit) override;
+    void csrUpdateStates(Buffer& states, const Buffer& new_tokens,
+                         const Buffer& row_ptr, const Buffer& col_idx,
+                         const Buffer& next_state, int end_token_id) override;
 
     void perfRangePush(const std::string& name) const override;
     void perfRangePop() const override;

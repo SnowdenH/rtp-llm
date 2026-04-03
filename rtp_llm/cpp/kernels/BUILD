@@ -348,6 +348,25 @@ cc_library(
 )
 
 cc_library(
+    name = "kernels_csr",
+    srcs = [
+        "mask_logits_csr.cu",
+    ],
+    hdrs = [
+        "mask_logits_csr.h",
+        "mask_logits.h",  # 依赖 NegativeInfinity<T>
+    ],
+    deps = any_cuda_deps + [
+        "//rtp_llm/cpp/utils:core_utils",
+        "//rtp_llm/cpp/cuda:cuda_utils_cu",
+        "//rtp_llm/cpp/cuda:launch_utils",
+    ],
+    copts = any_cuda_copts(),
+    include_prefix = "src",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "attn_utils",
     hdrs = [
         "decoder_masked_multihead_attention_utils.h",

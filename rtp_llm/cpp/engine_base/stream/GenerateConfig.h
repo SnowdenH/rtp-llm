@@ -87,6 +87,15 @@ public:
     std::string      trace_id;
     bool             soft_constraint_mode      = true;  // 约束解码中的新增模式，当出现不在树结构中的token时退出约束解码，而不是直接core掉
 
+    // 个性化约束树：请求级别的约束路径列表，每条 string 为一条完整叶子路径
+    // 格式："tok1_tok2_tok3"，各段为 int token id（根节点 start_token_id 独立指定）
+    // 示例：["1_2_3", "1_2_4", "2_3_8"] + start=225 表示 225→1→2→{3,4}，225→2→3→8
+    std::optional<std::vector<std::string>> custom_tree_paths;
+    std::optional<int32_t> custom_tree_start_token_id;
+    std::optional<int32_t> custom_tree_end_token_id;
+    // 是否使用 GPU CSR kernel 做 logits masking（true=GPU kernel, false=CPU 路径）
+    bool use_gpu_csr_kernel = false;
+
     bool top1() {
         return top_k == 1;
     }
@@ -217,6 +226,10 @@ public:
         JSONIZE(enable_3fs);
         JSONIZE(enable_memory_block_cache);
         JSONIZE(aux_info);
+        JSONIZE_OPTIONAL(custom_tree_paths);
+        JSONIZE_OPTIONAL(custom_tree_start_token_id);
+        JSONIZE_OPTIONAL(custom_tree_end_token_id);
+        JSONIZE(use_gpu_csr_kernel);
 #undef JSONIZE
 #undef JSONIZE_OPTIONAL
     }

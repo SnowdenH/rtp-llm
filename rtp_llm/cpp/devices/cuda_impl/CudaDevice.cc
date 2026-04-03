@@ -13,6 +13,7 @@
 #include "rtp_llm/cpp/core/torch_utils/torch_cuda_allocator.h"
 #include "rtp_llm/cpp/core/torch_utils/TorchEvent.h"
 #include "rtp_llm/cpp/kernels/mask_logits.h"
+#include "rtp_llm/cpp/kernels/mask_logits_csr.h"
 #include "rtp_llm/cpp/config/ConfigModules.h"
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
@@ -699,6 +700,45 @@ void CudaDevice::maskLogits(Buffer& logits, const Buffer& mask) {
     } else {
         throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     }
+}
+
+void CudaDevice::csrMaskLogits(Buffer& logits, const Buffer& states,
+                                const Buffer& row_ptr, const Buffer& col_idx,
+                                int limit) {
+    // GPU CSR 路径：直接在 logits 上按 CSR 候选集 mask，无需 CPU 构建 uint8 mask buffer
+    size_t batch_size = logits.shape()[0];
+    size_t vocab_size = logits.shape()[1];
+    if (limit <= 0) return;
+    if (logits.type() == DataType::TYPE_FP32) {
+        invokeCSRMaskLogits<float>(
+            (float*)logits.data(), (const int*)states.data(),
+            (const int*)row_ptr.data(), (const int*)col_idx.data(),
+            (int)batch_size, (int)vocab_size, limit, stream_);
+    } else if (logits.type() == DataType::TYPE_FP16) {
+        invokeCSRMaskLogits<half>(
+            (half*)logits.data(), (const int*)states.data(),
+            (const int*)row_ptr.data(), (const int*)col_idx.data(),
+            (int)batch_size, (int)vocab_size, limit, stream_);
+    } else if (logits.type() == DataType::TYPE_BF16) {
+        invokeCSRMaskLogits<__nv_bfloat16>(
+            (__nv_bfloat16*)logits.data(), (const int*)states.data(),
+            (const int*)row_ptr.data(), (const int*)col_idx.data(),
+            (int)batch_size, (int)vocab_size, limit, stream_);
+    } else {
+        throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
+    }
+}
+
+void CudaDevice::csrUpdateStates(Buffer& states, const Buffer& new_tokens,
+                                  const Buffer& row_ptr, const Buffer& col_idx,
+                                  const Buffer& next_state, int end_token_id) {
+    // GPU CSR 状态更新：根据新生成 token 推进每个 beam 的状态 id
+    int batch_size = (int)states.shape()[0];
+    invokeCSRUpdateStates(
+        (int*)states.data(), (const int*)new_tokens.data(),
+        (const int*)row_ptr.data(), (const int*)col_idx.data(),
+        (const int*)next_state.data(),
+        end_token_id, batch_size, stream_);
 }
 
 nvinfer1::DataType nvinfer1DtypeConvert(rtp_llm::DataType dtype) {
